@@ -1,0 +1,47 @@
+// Let's construct a basic stream cipher that uses a PRF f to compute a ciphertext as follows:
+// Enc(k, m): select fresh nonce, return f(k, nonce) XOR m
+
+// In this exercise, we will consider the correctness and security of this stream cipher
+// This exercise is split across 3 files:
+// - part 1: security against ciphertext-only attacks
+// - part 2: correctness
+// - part 3: insecurity against chosen plaintext + ciphertext attacks
+
+// In this file, you will try to get Tamarin to show that the scheme is secure against ciphertext only attacks, meaning that if the adversary is given a challenge ciphertext encrypting an unknown message under an unknown key, it can't recover the message
+
+theory basic_stream_cipher_security
+begin
+
+builtins: xor
+
+functions: f/2
+
+// Make a rule that models honest parties generating secret keys with a corresponding key identifier, similar to the previous PRF example
+// rule GenKey:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// Our security game will be defined in terms of the adversary's ability to decrypt a challenge ciphertext
+// Here's the challenge rule: the adversary specifies a keyid, then the challenger picks a fresh nonce and message, and encrypts
+// It records in an action fact what that challenge and solution was
+// I've done this one for you as an example
+rule Challenge:
+  let
+    c = f(k, ~nonce) XOR ~m
+  in
+  [In(keyid), Fr(~nonce), Fr(~m), !KeyMapping(keyid, k)]
+  --[Challenged(keyid, ~nonce, ~m, c)]->
+  [Out(<c, ~nonce>)]
+
+
+// Using the things you recorded in your action facts, make a lemma that says: for all honestly generated keys, and for an honestly generated challenge ciphertext, the adversary can't learn the message behind that ciphertext
+// lemma security_basic:
+//   "
+//     TODO
+//   "
+
+end

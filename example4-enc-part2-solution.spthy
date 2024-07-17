@@ -1,0 +1,53 @@
+// This file continues on from the scenario in example4-enc-part1
+
+// In this file, you will try to get Tamarin to show that the scheme is correct, meaning that if the adversary asks for a message to be encrypted using a key, and then asks for that ciphertext to be decrypted using the same, it computes the original message
+
+theory basic_stream_cipher_correctness
+begin
+
+builtins: xor
+
+functions: f/2
+
+// Make a rule that models honest parties generating secret keys with a corresponding key identifier, similar to the previous PRF example
+// You can use the same rule as from part 1
+rule GenKey:
+  [Fr(~k), Fr(~keyid)]
+  --[KeyGenerated(~keyid, ~k)]->
+  [Out(~keyid), !KeyMapping(~keyid, ~k)]
+
+// Make a rule that models the adversary requesting a message to be encrypted using the key corresponding to a given key identifier
+// You should take as input from the adversary a message and a key identifier, pick a fresh nonce, compute the ciphertext, and output the ciphertext and nonce to the adversary
+// You will also want to record in an action fact what happened in this query
+rule Enc:
+  let
+    c = f(k, ~nonce) XOR m
+  in
+  [In(<m, keyid>), Fr(~nonce), !KeyMapping(keyid, k)]
+  --[Enced(keyid, ~nonce, m, c)]->
+  [Out(<c, ~nonce>)]
+
+// Make a rule that models the adversary requesting a ciphertext (includig nonce) to be decrypted using the key corresponding to a given key identifier
+// You should take as input from the adversary a ciphertext and nonce and a key identifier, then output the decryption to the adversary
+// You will also want to record in an action fact what happened in this query
+rule Dec:
+  let
+    mprime = c XOR f(k, nonce)
+  in
+  [In(<c, nonce, keyid>), !KeyMapping(keyid, k)]
+  --[DecResult(k, nonce, c, mprime)]->
+  [Out(mprime)]
+
+// Using the things you recorded in your action facts, make a lemma that says: for all honestly generated keys, if a nonce was used to encrypt m to obtain ciphertext c, and c was decrypted using the same key and nonce, then it yields the same message
+lemma correctness:
+  "
+    All keyid k m c nonce mprime #tkeygen #tenc #tdec
+    .
+    KeyGenerated(keyid, k) @ #tkeygen
+    & Enced(k, nonce, m, c) @ #tenc
+    & DecResult(k, nonce, c, mprime) @ #tdec
+    ==>
+    mprime = m
+  "
+
+end

@@ -1,0 +1,71 @@
+// This file continues on from the scenario in example4-enc-part2
+
+// In this file, you will try to get Tamarin to show that the scheme is insecure in an attack scenario where the adversary gets an encryption and decryption oracle (i.e., chosen plaintext + ciphertext attack)
+
+theory basic_stream_cipher_insecurity
+begin
+
+builtins: xor
+
+functions: f/2
+
+// Make a rule that models honest parties generating secret keys with a corresponding key identifier, similar to the previous PRF example
+// You can use the same rule as in part 2 of this example
+// rule GenKey:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// Make a rule that models the adversary requesting a message to be encrypted using the key corresponding to a given key identifier
+// You can use the same rule as in part 2 of this example
+// rule Enc:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// Make a rule that models the adversary requesting a ciphertext (includig nonce) to be decrypted using the key corresponding to a given key identifier
+// You should take as input from the adversary a ciphertext and nonce and a key identifier, then output the decryption to the adversary
+// You will also want to record in an action fact what happened in this query
+// You can use a similar rule as in part 2 of this example, although you might want to change the action fact slightly
+// rule Dec:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// Our security game will be defined in terms of the adversary's ability to decrypt a challenge ciphertext
+// Here's the challenge rule: the adversary specifies a keyid, then the challenger picks a fresh nonce and message, and encrypts
+// It records in an action fact what that challenge and solution was
+// You can use the same rule as in part 1 of this example
+// rule Challenge:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// Using the things you recorded in your action facts, make a lemma that says: for all honestly generated keys, and for an honestly generated challenge ciphertext, the adversary can't learn the message behind that ciphertext
+// This lemma should end up being false. Examine the trace that Tamarin produces and see if you can understand why.
+// lemma security_attempt1:
+//   "
+//     TODO
+//   "
+
+// Let's try a narrower security statement, in which we preclude the adversary from asking for the challenge ciphertext to be decrypted.
+// Using the things you recorded in your action facts, make a lemma that says: for all honestly generated keys, and for an honestly generated challenge ciphertext, such that the adversary did not query the challenge ciphertext to the decryption oracle, the adversary can't learn the message behind that ciphertext
+// This lemma should end up being false. Examine the trace that Tamarin produces and see if you can understand why.
+// lemma security_attempt2:
+//   "
+//     TODO
+//   "
+
+end
