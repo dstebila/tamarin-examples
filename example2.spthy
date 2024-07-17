@@ -1,0 +1,168 @@
+theory example2
+begin
+
+builtins: hashing, signing
+
+functions: 
+  KEM_PK/1, KEM_Encaps_ct/2, KEM_Encaps_ss/2, KEM_Decaps/2
+
+equations:
+  // correctness of KEM decapsulation
+  KEM_Decaps(sk, KEM_Encaps_ct(KEM_PK(sk), coins)) = KEM_Encaps_ss(KEM_PK(sk), coins)
+
+restriction unique:
+  "All x #i #j. UniqueFact(x) @#i & UniqueFact(x) @#j ==> #i = #j"
+
+rule LongTermKeyGen:
+  let
+    pk_B = pk(~sk_B)
+  in
+    [Fr(~sk_B)]
+  --[LongTermKeyBound($B, pk_B), UniqueFact(<'LongTermKeyGen', $B>)]->
+    [Out(<$B, pk_B>), !LTSK($B, ~sk_B), !LTPK($B, pk_B)]
+
+rule RevealLTSK:
+    [In($B), !LTSK($B, sk_B)]
+  --[RevealedLTSK($B)]->
+    [Out(sk_B)]
+
+rule ClientAction1:
+  let
+    pk_e = KEM_PK(~sk_e)
+  in
+    [Fr(~sk_e), Fr(~tid)]
+  --[]->
+    [Out(<~tid, pk_e>), ClientState(~tid, pk_e, ~sk_e)]
+
+rule ServerAction1:
+  let
+    ct_e = KEM_Encaps_ct(pk_e, ~coins)
+    ss_e = KEM_Encaps_ss(pk_e, ~coins)
+    sigma = sign(ct_e, sk_B)
+    k = h(<ss_e, pk_B, pk_e, ct_e>)
+  in
+    [In(pk_e), Fr(~coins), Fr(~tid), !LTSK($B, sk_B), !LTPK($B, pk_B)]
+  --[  SessionID(~tid, <pk_B, pk_e, ct_e>), 
+       SessionKey(~tid, k), 
+       Role(~tid, 'server'), 
+       Owner(~tid, $B), 
+       Peer(~tid, 'anon')
+  ]->
+    [Out(<~tid, ct_e, sigma>), SESSK(~tid, k)]
+
+restriction Equality:
+  "All x y #i. Eq(x,y) @i ==> x = y"
+
+rule ClientAction2:
+  let
+    ss_e = KEM_Decaps(sk_e, ct_e)
+    k = h(<ss_e, pk_B, pk_e, ct_e>)
+  in
+    [In(<ct_e, sigma>), ClientState(tid, pk_e, sk_e), !LTPK($B, pk_B)]
+  --[
+       Eq(verify(sigma, ct_e, pk_B), true),
+       SessionID(tid, <pk_B, pk_e, ct_e>), 
+       SessionKey(tid, k), 
+       Role(tid, 'client'), 
+       Owner(tid, 'anon'), 
+       Peer(tid, $B)
+  ]->
+    [SESSK(tid, k)]
+
+rule RevealSessK:
+    [In(tid), SESSK(tid, k)]
+  --[RevealedSessK(tid)]->
+    [Out(k)]
+
+lemma ss_correct:
+  "
+    All tid_c tid_s sid_c sid_s ss_c ss_s #tcsid #tcrole #tcsessk #tssid #tsrole #tssessk
+    .
+    SessionID(tid_c, sid_c) @ #tcsid
+    & Role(tid_c, 'client') @ #tcrole
+    & SessionKey(tid_c, ss_c) @ #tcsessk
+    & SessionID(tid_s, sid_s) @ #tssid
+    & Role(tid_s, 'server') @ #tsrole
+    & SessionKey(tid_s, ss_s) @ #tssessk
+    & sid_c = sid_s
+    ==> 
+    ss_c = ss_s
+  "
+
+lemma works:
+  exists-trace
+  "
+    Ex tid_c sid_c k_c tid_s sid_s k_s B #tcrole #tcsid #tcsessk #tcowner #tcpeer #tsrole #tssid #tssessk #tsowner #tspeer
+    .
+    Role(tid_c, 'client') @ #tcrole
+    & SessionID(tid_c, sid_c) @ #tcsid
+    & SessionKey(tid_c, k_c) @ #tcsessk
+    & Owner(tid_c, 'anon') @ #tcowner
+    & Peer(tid_c, B) @ #tcpeer 
+    & Role(tid_s, 'server') @ #tsrole
+    & SessionID(tid_s, sid_s) @ #tssid
+    & sid_c = sid_s
+    & SessionKey(tid_s, k_s) @ #tssessk
+    & k_c = k_s
+    & Owner(tid_s, B) @ #tsowner
+    & Peer(tid_s, 'anon') @ #tspeer 
+  "
+
+lemma ss_secure_take2:
+  "
+    All tid_c ss_c sid_c #tcrole #tcsessk #tcsid
+    .
+    // if a client session
+    Role(tid_c, 'client') @ #tcrole
+    // ... accepted ss_c
+    & SessionKey(tid_c, ss_c) @ #tcsessk
+    // ... with session identifier sid_c
+    & SessionID(tid_c, sid_c) @ #tcsid
+    // ... and there exists a server session 
+    //     with the same session identifier
+    & (Ex tid_s sid_s #tsrole #tssid .
+      Role(tid_s, 'server') @ #tsrole
+      & SessionID(tid_s, sid_s) @ #tssid
+      & sid_c = sid_s
+    )
+    ==>
+    // then the adversary doesn't know ss_c
+    not(Ex #t . K(ss_c) @ #t)
+  "
+
+lemma client_session_key_secure:
+  "
+    All tid_c sid_c k_c B #tcrole #tcsid #tcsessk #tcpeer
+    .
+    // if a client session
+    Role(tid_c, 'client') @ #tcrole
+    // ... accepted k_c
+    & SessionKey(tid_c, k_c) @ #tcsessk
+    // ... with session identifier sid_c
+    & SessionID(tid_c, sid_c) @ #tcsid
+    // ... and alleged peer B
+    & Peer(tid_c, B) @ #tcpeer
+    // ... and there was no session key reveal at the client
+    & not(Ex #tcrevsessk . RevealedSessK(tid_c) @ #tcrevsessk)
+    // ... and there was no session key reveal at any server
+    //     session with the same session identifier
+    & not(Ex tid_s sid_s #tsrole #tssid #tsrevsessk 
+      .
+      Role(tid_s, 'server') @ #tsrole
+      & SessionID(tid_s, sid_s) @ #tssid
+      & sid_c = sid_s
+      & RevealedSessK(tid_s) @ #tsrevsessk
+    )
+    // ... and the alleged peer's long-term secret key was
+    //     not revealed before the client accepted
+    & not(Ex #tsrevltsk 
+      .
+      RevealedLTSK(B) @ #tsrevltsk
+      & #tsrevltsk < #tcsessk
+    )
+    ==>
+    // then the adversary doesn't know ss_c
+    not(Ex #t . K(k_c) @ #t)
+  "
+
+end

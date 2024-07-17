@@ -1,0 +1,86 @@
+theory example1
+begin
+
+functions: 
+  KEM_PK/1, KEM_Encaps_ct/2, KEM_Encaps_ss/2, KEM_Decaps/2
+
+equations:
+  // correctness of KEM decapsulation
+  KEM_Decaps(sk, KEM_Encaps_ct(KEM_PK(sk), coins)) = KEM_Encaps_ss(KEM_PK(sk), coins)
+
+rule ClientAction1:
+  let
+    pk_e = KEM_PK(~sk_e)
+  in
+    [Fr(~sk_e), Fr(~tid)] // requires: fresh sk_e, fresh thread identifier
+  --[]-> // don't record anything
+    [Out(pk_e), ClientState(~tid, pk_e, ~sk_e)] // produces: send pk_e to adversary and save (sk_e) as state for thread tid
+
+rule ServerAction1:
+  let
+    ct_e = KEM_Encaps_ct(pk_e, ~coins)
+    ss_e = KEM_Encaps_ss(pk_e, ~coins)
+  in
+    [In(pk_e), Fr(~coins), Fr(~tid)] // requires: pk_e input, fresh coins for encapsulation, fresh thread identifier
+  --[SessionID(~tid, <pk_e, ct_e>), SessionKey(~tid, ss_e), Role(~tid, 'server')]-> // record that server established a session identifier and session key
+    [Out(ct_e)] // produces: send ct_e to adversary
+
+rule ClientAction2:
+  let
+    ss_e = KEM_Decaps(sk_e, ct_e)
+  in
+    [In(ct_e), ClientState(tid, pk_e, sk_e)] // requires: ct_e input, previous client state
+  --[SessionID(tid, <pk_e, ct_e>), SessionKey(tid, ss_e), Role(tid, 'client')]-> // record that client established a sesion identifier and session key
+    [] // produces: nothing
+
+lemma ss_correct:
+  "
+    All tid_c tid_s sid_c sid_s ss_c ss_s #tcsid #tcrole #tcsessk #tssid #tsrole #tssessk
+    .
+    SessionID(tid_c, sid_c) @ #tcsid
+    & Role(tid_c, 'client') @ #tcrole
+    & SessionKey(tid_c, ss_c) @ #tcsessk
+    & SessionID(tid_s, sid_s) @ #tssid
+    & Role(tid_s, 'server') @ #tsrole
+    & SessionKey(tid_s, ss_s) @ #tssessk
+    & sid_c = sid_s
+    ==> 
+    ss_c = ss_s
+  "
+
+lemma ss_secure_take1:
+  "
+    All tid_c ss_c #tcrole #tcsessk
+    .
+    // if a client session
+    Role(tid_c, 'client') @ #tcrole
+    // ... accepted accepted ss_c
+    & SessionKey(tid_c, ss_c) @ #tcsessk
+    ==>
+    // then the adversary doesn't know ss_c
+    not(Ex #t . K(ss_c) @ #t)
+  "
+
+lemma ss_secure_take2:
+  "
+    All tid_c ss_c sid_c #tcrole #tcsessk #tcsid
+    .
+    // if a client session
+    Role(tid_c, 'client') @ #tcrole
+    // ... accepted ss_c
+    & SessionKey(tid_c, ss_c) @ #tcsessk
+    // ... with session identifier sid_c
+    & SessionID(tid_c, sid_c) @ #tcsid
+    // ... and there exists a server session 
+    //     with the same session identifier
+    & (Ex tid_s sid_s #tsrole #tssid .
+      Role(tid_s, 'server') @ #tsrole
+      & SessionID(tid_s, sid_s) @ #tssid
+      & sid_c = sid_s
+    )
+    ==>
+    // then the adversary doesn't know ss_c
+    not(Ex #t . K(ss_c) @ #t)
+  "
+
+end

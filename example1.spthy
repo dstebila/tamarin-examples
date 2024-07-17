@@ -1,0 +1,45 @@
+theory example1
+begin
+
+functions: 
+  KEM_PK/1, KEM_Encaps_ct/2, KEM_Encaps_ss/2, KEM_Decaps/2
+
+equations:
+  // correctness of KEM decapsulation
+  KEM_Decaps(sk, KEM_Encaps_ct(KEM_PK(sk), coins)) = KEM_Encaps_ss(KEM_PK(sk), coins)
+
+// rule RULENAME:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+// 
+// rule RULENAME:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+// 
+// rule RULENAME:
+//   let
+//     DECLARATION = DECLARATION
+//   in
+//     []
+//   --[]->
+//     []
+
+// lemma ss_secure_take1:
+//   "
+//     TODO
+//   "
+
+// lemma ss_secure_take2:
+//   "
+//     TODO
+//   "
+
+end
